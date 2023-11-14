@@ -263,28 +263,28 @@ void gsensor_check(SpiCore *spi_p, GpoCore *led_p) {
    uart.disp("\n\r");
    //0 deg
    if(x<1.1 && x>1){
-	   led_p->write(1,3);
-	   led_p->write(0,2);
-	   led_p->write(0,1);
-	   led_p->write(0,0);
+	   led_p->write(1,6);
+	   led_p->write(0,7);
+	   led_p->write(0,8);
+	   led_p->write(0,9);
    }
    if(x<0.1 && x>0){
-	   led_p->write(0,3);
-	   led_p->write(1,2);
-	   led_p->write(0,1);
-	   led_p->write(0,0);
+	   led_p->write(0,6);
+	   led_p->write(1,7);
+	   led_p->write(0,8);
+	   led_p->write(0,9);
    }
    if(x<-1 && x>-1.1){
-	   led_p->write(0,3);
-	   led_p->write(0,2);
-	   led_p->write(1,1);
-	   led_p->write(0,0);
+	   led_p->write(0,6);
+	   led_p->write(0,7);
+	   led_p->write(1,8);
+	   led_p->write(0,9);
    }
    if(x<0 && x>-0.1){
-	   led_p->write(0,3);
-	   led_p->write(0,2);
-	   led_p->write(0,1);
-	   led_p->write(1,0);
+	   led_p->write(0,6);
+	   led_p->write(0,7);
+	   led_p->write(0,8);
+	   led_p->write(1,9);
    }
 
 }
@@ -293,7 +293,38 @@ void gsensor_check(SpiCore *spi_p, GpoCore *led_p) {
  * read temperature from adt7420
  * @param adt7420_p pointer to adt7420 instance
  */
-void adt7420_check(I2cCore *adt7420_p, GpoCore *led_p) {
+//float tempC;
+
+void sseg_temp(float temp, SsegCore *sseg_p){
+	uint8_t point = 0x10;
+
+	int temp_val = static_cast<int>(temp * 1000.0);
+
+	int num_array[5];
+
+	num_array[0] = (temp_val / 10000) % 10;
+	num_array[1] = (temp_val / 1000) % 10;
+	num_array[2] = (temp_val / 100) % 10;
+	num_array[3] = (temp_val / 10) % 10;
+	num_array[4] = (temp_val / 1) % 10;
+
+	sseg_p->set_dp(0x00);
+	sseg_p->write_1ptn(sseg_p->h2s(12), 0);
+	sseg_p->set_dp(point);
+
+	for(int i = 0; i < 5; i++){
+		sseg_p->write_1ptn(sseg_p->h2s(num_array[i]), 5 - i);
+		/*if(i == 4){
+			sseg_p->write_1ptn(sseg_p->h2s(12), 0);
+		}
+		else {
+			sseg_p->write_1ptn(sseg_p->h2s(num_array[i]), 5 - i);
+		}*/
+	}
+}
+
+
+void adt7420_check(I2cCore *adt7420_p, GpoCore *led_p, SsegCore *sseg_p) {
    const uint8_t DEV_ADDR = 0x4b;
    uint8_t wbytes[2], bytes[2];
    //int ack;
@@ -326,12 +357,17 @@ void adt7420_check(I2cCore *adt7420_p, GpoCore *led_p) {
       tmp = tmp >> 3;
       tmpC = (float) tmp / 16;
    }
+
+   sseg_temp(tmpC, sseg_p);
+
    uart.disp("temperature (C): ");
+   //tempC = tmpC;
    uart.disp(tmpC);
    uart.disp("\n\r");
    led_p->write(tmp);
    sleep_ms(1000);
    led_p->write(0);
+
 }
 
 void ps2_check(Ps2Core *ps2_p) {
@@ -472,9 +508,28 @@ void show_test_id(int n, GpoCore *led_p) {
       sleep_ms(30);
    }
 }
+/*
+void sseg_temp(float temp, SsegCore *sseg_p){
+	uint8_t C = 0xC6;
+	uint8_t point = 0x04;
 
+	int temp_val = static_cast<int>(temp * 1000.0);
 
+	int num_array[5];
 
+	num_array[0] = (temp_val / 10000) % 10;
+	num_array[1] = (temp_val / 1000) % 10;
+	num_array[2] = (temp_val / 100) % 10;
+	num_array[3] = (temp_val / 10) % 10;
+	num_array[4] = (temp_val / 1) % 10;
+
+	sseg_p->write_1ptn(sseg_p->h2s(C), 0);
+	sseg_p->set_dp(point);
+
+	for(int i = 0; i < 5; i++){
+		sseg_p->write_1ptn(sseg_p->h2s(num_array[i]), 4 - i);
+	}
+}*/
 
 GpoCore led(get_slot_addr(BRIDGE_BASE, S2_LED));
 GpiCore sw(get_slot_addr(BRIDGE_BASE, S3_SW));
@@ -492,6 +547,7 @@ AdsrCore adsr(get_slot_addr(BRIDGE_BASE, S13_ADSR), &ddfs);
 int main() {
    //uint8_t id, ;
 
+   //(&sseg)->h2s(tempC);
    timer_check(&led);
    while (1) {
       /*show_test_id(1, &led);
@@ -510,10 +566,12 @@ int main() {
       sseg_check(&sseg);
       show_test_id(9, &led);
       */
-	  //sseg_check(&sseg);
+	 //sseg_check(&sseg);
+	  //(&sseg)->h2s(tempC);
+	  adt7420_check(&adt7420, &led, &sseg);
 
+	  /*
       gsensor_check(&spi, &led);
-      /*
       show_test_id(10, &led);
       adt7420_check(&adt7420, &led);
       show_test_id(11, &led);
